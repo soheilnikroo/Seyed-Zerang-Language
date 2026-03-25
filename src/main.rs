@@ -10,8 +10,9 @@ use tokenize::tokenize;
 
 fn main() {
     println!("Hello, Zerang!");
-    read_source();
-    tokenize();
-    parse();
-    evaluate();
+    let source = read_source("some_file.zerang");
+    let tokens = tokenize(source);
+    let ast = parse(tokens);
+    let output = evaluate(ast);
+    println!("{output:?}");
 }
