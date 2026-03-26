@@ -214,9 +214,47 @@ impl Scanner {
             }
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
-
-            _ => unimplemented!(),
+            '"' => self.string(),
+            c if c.is_digit(10) => {
+                self.number();
+            }
+            err => panic!("{err:?}"),
         }
+    }
+
+    fn string(&mut self) {
+        while self.peek() != '"' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+        if self.is_at_end() {
+            todo!("Unterminated String");
+        }
+        self.advance();
+        let value = self.source[self.start + 1..self.current - 1]
+            .iter()
+            .collect::<String>();
+        self.add_token_with_literal(TokenType::String, Literal::Str(value));
+    }
+
+    fn number(&mut self) {
+        while self.peek().is_digit(10) {
+            self.advance();
+        }
+
+        if self.peek() == '.' {
+            self.advance();
+            while self.peek().is_digit(10) {
+                self.advance();
+            }
+        }
+        let lexeme = self.source[self.start..self.current]
+            .iter()
+            .collect::<String>();
+        let literal = Literal::Num(lexeme.parse().unwrap());
+        self.add_token_with_literal(TokenType::Number, literal);
     }
 }
 
@@ -271,6 +309,44 @@ mod tests {
                 Token::new(TokenType::GreaterEqual, ">=", Literal::None, 1),
                 Token::new(TokenType::EqualEqual, "==", Literal::None, 1),
                 Token::new(TokenType::Equal, "=", Literal::None, 1),
+                Token::new(TokenType::Eof, "", Literal::None, 1)
+            ]
+        )
+    }
+
+    #[test]
+    fn strings() {
+        let scanner = Scanner::new("\"hello\" \"world\"");
+        let tokens = scanner.scan_tokens();
+        assert_eq!(
+            tokens.unwrap().tokens,
+            vec![
+                Token::new(
+                    TokenType::String,
+                    "\"hello\"",
+                    Literal::Str("hello".to_string()),
+                    1
+                ),
+                Token::new(
+                    TokenType::String,
+                    "\"world\"",
+                    Literal::Str("world".to_string()),
+                    1
+                ),
+                Token::new(TokenType::Eof, "", Literal::None, 1)
+            ]
+        )
+    }
+
+    #[test]
+    fn numbers() {
+        let scanner = Scanner::new("12345 123.45");
+        let tokens = scanner.scan_tokens();
+        assert_eq!(
+            tokens.unwrap().tokens,
+            vec![
+                Token::new(TokenType::Number, "12345", Literal::Num(12345.0), 1),
+                Token::new(TokenType::Number, "123.45", Literal::Num(123.45), 1),
                 Token::new(TokenType::Eof, "", Literal::None, 1)
             ]
         )
