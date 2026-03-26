@@ -20,7 +20,7 @@ pub enum TokenType {
     Equal,
     EqualEqual,
     Greater,
-    GreatEqual,
+    GreaterEqual,
     Less,
     LessEqual,
     // Literal
@@ -126,6 +126,19 @@ impl Scanner {
         c
     }
 
+    fn matches(&mut self, expected: char) -> bool {
+        if self.is_at_end() {
+            return false;
+        }
+
+        if self.source[self.current] != expected {
+            return false;
+        }
+
+        self.current += 1;
+        true
+    }
+
     fn add_token(&mut self, token_type: TokenType) {
         self.add_token_with_literal(token_type, Literal::None);
     }
@@ -150,6 +163,38 @@ impl Scanner {
             '+' => self.add_token(TokenType::Plus),
             ';' => self.add_token(TokenType::SemiColon),
             '*' => self.add_token(TokenType::Star),
+            '!' => {
+                let token_type = if self.matches('=') {
+                    TokenType::BangEqual
+                } else {
+                    TokenType::Bang
+                };
+                self.add_token(token_type);
+            }
+            '=' => {
+                let token_type = if self.matches('=') {
+                    TokenType::EqualEqual
+                } else {
+                    TokenType::Equal
+                };
+                self.add_token(token_type);
+            }
+            '<' => {
+                let token_type = if self.matches('=') {
+                    TokenType::LessEqual
+                } else {
+                    TokenType::Less
+                };
+                self.add_token(token_type);
+            }
+            '>' => {
+                let token_type = if self.matches('=') {
+                    TokenType::GreaterEqual
+                } else {
+                    TokenType::Greater
+                };
+                self.add_token(token_type);
+            }
             _ => unimplemented!(),
         }
     }
@@ -186,6 +231,26 @@ mod tests {
                 Token::new(TokenType::Plus, "+", Literal::None, 1),
                 Token::new(TokenType::SemiColon, ";", Literal::None, 1),
                 Token::new(TokenType::Star, "*", Literal::None, 1),
+                Token::new(TokenType::Eof, "", Literal::None, 1)
+            ]
+        )
+    }
+
+    #[test]
+    fn two_character() {
+        let scanner = Scanner::new("!!=<<=>>====");
+        let tokens = scanner.scan_tokens();
+        assert_eq!(
+            tokens.unwrap().tokens,
+            vec![
+                Token::new(TokenType::Bang, "!", Literal::None, 1),
+                Token::new(TokenType::BangEqual, "!=", Literal::None, 1),
+                Token::new(TokenType::Less, "<", Literal::None, 1),
+                Token::new(TokenType::LessEqual, "<=", Literal::None, 1),
+                Token::new(TokenType::Greater, ">", Literal::None, 1),
+                Token::new(TokenType::GreaterEqual, ">=", Literal::None, 1),
+                Token::new(TokenType::EqualEqual, "==", Literal::None, 1),
+                Token::new(TokenType::Equal, "=", Literal::None, 1),
                 Token::new(TokenType::Eof, "", Literal::None, 1)
             ]
         )
