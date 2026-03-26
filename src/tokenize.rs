@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::reader::Source;
 
 #[derive(Debug, PartialEq)]
@@ -86,7 +84,12 @@ pub struct Tokens {
 }
 
 #[derive(Debug)]
-pub struct Error {}
+pub struct Error(Vec<ScanError>);
+
+#[derive(Debug)]
+enum ScanError {
+    UnexpectedCharacter { line: usize, ch: char },
+}
 
 struct Scanner {
     source: Vec<char>,
@@ -94,6 +97,7 @@ struct Scanner {
     start: usize,
     current: usize,
     line: usize,
+    errors: Vec<ScanError>,
 }
 
 impl Scanner {
@@ -104,7 +108,12 @@ impl Scanner {
             start: 0,
             current: 0,
             line: 1,
+            errors: Vec::new(),
         }
+    }
+
+    fn error(&mut self, err: ScanError) {
+        self.errors.push(err);
     }
 
     fn is_at_end(&self) -> bool {
@@ -118,9 +127,14 @@ impl Scanner {
         }
         self.tokens
             .push(Token::new(TokenType::Eof, "", Literal::None, self.line));
-        Ok(Tokens {
-            tokens: self.tokens,
-        })
+
+        if self.errors.len() == 0 {
+            Ok(Tokens {
+                tokens: self.tokens,
+            })
+        } else {
+            Err(Error(self.errors))
+        }
     }
 
     fn advance(&mut self) -> char {
@@ -223,7 +237,12 @@ impl Scanner {
                 self.number();
             }
             char if char.is_alphabetic() => self.identifier(),
-            err => panic!("{err:?}"),
+            char => {
+                self.error(ScanError::UnexpectedCharacter {
+                    line: self.line,
+                    ch: char,
+                });
+            }
         }
     }
 
