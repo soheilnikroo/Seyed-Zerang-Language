@@ -1,6 +1,6 @@
 use crate::reader::Source;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TokenType {
     // Single character token
     LeftParen,
@@ -16,7 +16,7 @@ pub enum TokenType {
     Star,
     // One or two character
     Bang,
-    Bang_Equal,
+    BangEqual,
     Equal,
     EqualEqual,
     Greater,
@@ -46,14 +46,14 @@ pub enum TokenType {
     Eof,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Literal {
     Str(String),
     Num(f64),
     None,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
@@ -62,10 +62,15 @@ pub struct Token {
 }
 
 impl Token {
-    fn new(token_type: TokenType, lexeme: &str, literal: Literal, line: usize) -> Self {
+    fn new(
+        token_type: TokenType,
+        lexeme: impl Into<String>,
+        literal: Literal,
+        line: usize,
+    ) -> Self {
         Self {
             token_type,
-            lexeme: String::from(lexeme),
+            lexeme: lexeme.into(),
             literal,
             line,
         }
@@ -103,19 +108,50 @@ impl Scanner {
         self.current >= self.source.len()
     }
 
-    fn scan_tokens(mut self) -> Tokens {
+    fn scan_tokens(mut self) -> Result<Tokens, Error> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token();
         }
         self.tokens
             .push(Token::new(TokenType::Eof, "", Literal::None, self.line));
-        Tokens {
+        Ok(Tokens {
             tokens: self.tokens,
-        }
+        })
     }
+
+    fn advance(&mut self) -> char {
+        let c = self.source[self.current];
+        self.current += 1;
+        c
+    }
+
+    fn add_token(&mut self, token_type: TokenType) {
+        self.add_token_with_literal(token_type, Literal::None);
+    }
+
+    fn add_token_with_literal(&mut self, token_type: TokenType, literal: Literal) {
+        let text = self.source[self.start..self.current]
+            .iter()
+            .collect::<String>();
+        self.tokens
+            .push(Token::new(token_type, text, literal, self.line))
+    }
+
     fn scan_token(&mut self) {
-        todo!()
+        match self.advance() {
+            '(' => self.add_token(TokenType::LeftParen),
+            ')' => self.add_token(TokenType::RightParen),
+            '{' => self.add_token(TokenType::LeftBrace),
+            '}' => self.add_token(TokenType::RightBrace),
+            ',' => self.add_token(TokenType::Comma),
+            '.' => self.add_token(TokenType::Dot),
+            '-' => self.add_token(TokenType::Minus),
+            '+' => self.add_token(TokenType::Plus),
+            ';' => self.add_token(TokenType::SemiColon),
+            '*' => self.add_token(TokenType::Star),
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -132,5 +168,26 @@ mod tests {
     #[test]
     fn its_alive() {
         assert_eq!(true, true)
+    }
+    #[test]
+    fn single_character() {
+        let scanner = Scanner::new("(){},.-+;*");
+        let tokens = scanner.scan_tokens();
+        assert_eq!(
+            tokens.unwrap().tokens,
+            vec![
+                Token::new(TokenType::LeftParen, "(", Literal::None, 1),
+                Token::new(TokenType::RightParen, ")", Literal::None, 1),
+                Token::new(TokenType::LeftBrace, "{", Literal::None, 1),
+                Token::new(TokenType::RightBrace, "}", Literal::None, 1),
+                Token::new(TokenType::Comma, ",", Literal::None, 1),
+                Token::new(TokenType::Dot, ".", Literal::None, 1),
+                Token::new(TokenType::Minus, "-", Literal::None, 1),
+                Token::new(TokenType::Plus, "+", Literal::None, 1),
+                Token::new(TokenType::SemiColon, ";", Literal::None, 1),
+                Token::new(TokenType::Star, "*", Literal::None, 1),
+                Token::new(TokenType::Eof, "", Literal::None, 1)
+            ]
+        )
     }
 }
