@@ -1,12 +1,26 @@
-/// Read source code from file
+use std::{fs::read_to_string, io};
 
-pub type Source = ();
-pub type Error = ();
+pub struct Source {
+    pub contents: String,
+}
+
+#[derive(Debug)]
+pub struct Error {
+    msg: String,
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
+        Error {
+            msg: format!("{err}"),
+        }
+    }
+}
 
 pub fn read_source(filename: &str) -> Result<Source, Error> {
     println!("Reading Source.");
-
-    Ok(())
+    let contents = read_to_string(filename)?;
+    Ok(Source { contents })
 }
 
 #[cfg(test)]
