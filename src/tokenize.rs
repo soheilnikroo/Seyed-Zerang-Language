@@ -151,6 +151,14 @@ impl Scanner {
             .push(Token::new(token_type, text, literal, self.line))
     }
 
+    fn peek(&self) -> char {
+        if self.is_at_end() {
+            '\x00'
+        } else {
+            self.source[self.current]
+        }
+    }
+
     fn scan_token(&mut self) {
         match self.advance() {
             '(' => self.add_token(TokenType::LeftParen),
@@ -195,6 +203,18 @@ impl Scanner {
                 };
                 self.add_token(token_type);
             }
+            '/' => {
+                if self.matches('/') {
+                    while self.peek() != '\n' && self.is_at_end() {
+                        self.advance();
+                    }
+                } else {
+                    self.add_token(TokenType::Slash);
+                }
+            }
+            ' ' | '\r' | '\t' => {}
+            '\n' => self.line += 1,
+
             _ => unimplemented!(),
         }
     }
@@ -238,7 +258,7 @@ mod tests {
 
     #[test]
     fn two_character() {
-        let scanner = Scanner::new("!!=<<=>>====");
+        let scanner = Scanner::new("! != < <= > >= == =");
         let tokens = scanner.scan_tokens();
         assert_eq!(
             tokens.unwrap().tokens,
