@@ -142,16 +142,17 @@ impl Scanner {
         true
     }
 
+    fn lexeme(&self) -> String {
+        self.source[self.start..self.current].iter().collect()
+    }
+
     fn add_token(&mut self, token_type: TokenType) {
         self.add_token_with_literal(token_type, Literal::None);
     }
 
     fn add_token_with_literal(&mut self, token_type: TokenType, literal: Literal) {
-        let text = self.source[self.start..self.current]
-            .iter()
-            .collect::<String>();
         self.tokens
-            .push(Token::new(token_type, text, literal, self.line))
+            .push(Token::new(token_type, self.lexeme(), literal, self.line))
     }
 
     fn peek(&self) -> char {
@@ -254,10 +255,7 @@ impl Scanner {
                 self.advance();
             }
         }
-        let lexeme = self.source[self.start..self.current]
-            .iter()
-            .collect::<String>();
-        let literal = Literal::Num(lexeme.parse().unwrap());
+        let literal = Literal::Num(self.lexeme().parse().unwrap());
         self.add_token_with_literal(TokenType::Number, literal);
     }
 
@@ -265,11 +263,8 @@ impl Scanner {
         while self.peek().is_alphanumeric() || self.peek() == '_' {
             self.advance();
         }
-        let lexeme = self.source[self.start..self.current]
-            .iter()
-            .collect::<String>();
 
-        let token_type = match &lexeme[..] {
+        let token_type = match &self.lexeme()[..] {
             "and" => TokenType::And,
             "class" => TokenType::Class,
             "else" => TokenType::Else,
@@ -295,8 +290,7 @@ impl Scanner {
 
 pub fn tokenize(source: Source) -> Result<Tokens, Error> {
     println!("Tokenizing");
-    let tokens = vec![];
-    Ok(Tokens { tokens: tokens })
+    Scanner::new(&source.contents).scan_tokens()
 }
 
 #[cfg(test)]

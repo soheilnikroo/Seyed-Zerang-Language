@@ -49,6 +49,7 @@ impl From<evaluate::Error> for Error {
 
 fn run(source: Source) -> Result<(), Error> {
     let tokens = tokenize(source)?;
+    println!("{tokens:?}");
     let ast = parse(tokens)?;
     let output = evaluate(ast)?;
     Ok(())
