@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::reader::Source;
 
 #[derive(Debug, PartialEq)]
@@ -43,6 +45,7 @@ pub enum TokenType {
     This,
     Var,
     While,
+    True,
     Eof,
 }
 
@@ -262,7 +265,31 @@ impl Scanner {
         while self.peek().is_alphanumeric() || self.peek() == '_' {
             self.advance();
         }
-        self.add_token(TokenType::Identifier);
+        let lexeme = self.source[self.start..self.current]
+            .iter()
+            .collect::<String>();
+
+        let token_type = match &lexeme[..] {
+            "and" => TokenType::And,
+            "class" => TokenType::Class,
+            "else" => TokenType::Else,
+            "false" => TokenType::False,
+            "for" => TokenType::For,
+            "fun" => TokenType::Fun,
+            "if" => TokenType::If,
+            "nil" => TokenType::Nil,
+            "or" => TokenType::Or,
+            "print" => TokenType::Print,
+            "return" => TokenType::Return,
+            "super" => TokenType::Super,
+            "this" => TokenType::This,
+            "true" => TokenType::True,
+            "var" => TokenType::Var,
+            "while" => TokenType::While,
+            _ => TokenType::Identifier,
+        };
+
+        self.add_token(token_type);
     }
 }
 
@@ -370,6 +397,36 @@ mod tests {
                 Token::new(TokenType::Identifier, "abc", Literal::None, 1),
                 Token::new(TokenType::Identifier, "def123", Literal::None, 1),
                 Token::new(TokenType::Identifier, "ab_cd", Literal::None, 1),
+                Token::new(TokenType::Eof, "", Literal::None, 1)
+            ]
+        )
+    }
+
+    #[test]
+    fn keywords() {
+        let scanner = Scanner::new(
+            "and class else false for fun if nil or print return super this true var while",
+        );
+        let tokens = scanner.scan_tokens();
+        assert_eq!(
+            tokens.unwrap().tokens,
+            vec![
+                Token::new(TokenType::And, "and", Literal::None, 1),
+                Token::new(TokenType::Class, "class", Literal::None, 1),
+                Token::new(TokenType::Else, "else", Literal::None, 1),
+                Token::new(TokenType::False, "false", Literal::None, 1),
+                Token::new(TokenType::For, "for", Literal::None, 1),
+                Token::new(TokenType::Fun, "fun", Literal::None, 1),
+                Token::new(TokenType::If, "if", Literal::None, 1),
+                Token::new(TokenType::Nil, "nil", Literal::None, 1),
+                Token::new(TokenType::Or, "or", Literal::None, 1),
+                Token::new(TokenType::Print, "print", Literal::None, 1),
+                Token::new(TokenType::Return, "return", Literal::None, 1),
+                Token::new(TokenType::Super, "super", Literal::None, 1),
+                Token::new(TokenType::This, "this", Literal::None, 1),
+                Token::new(TokenType::True, "true", Literal::None, 1),
+                Token::new(TokenType::Var, "var", Literal::None, 1),
+                Token::new(TokenType::While, "while", Literal::None, 1),
                 Token::new(TokenType::Eof, "", Literal::None, 1)
             ]
         )
