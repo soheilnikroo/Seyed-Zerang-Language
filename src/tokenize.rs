@@ -215,9 +215,10 @@ impl Scanner {
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
             '"' => self.string(),
-            c if c.is_digit(10) => {
+            char if char.is_digit(10) => {
                 self.number();
             }
+            char if char.is_alphabetic() => self.identifier(),
             err => panic!("{err:?}"),
         }
     }
@@ -255,6 +256,13 @@ impl Scanner {
             .collect::<String>();
         let literal = Literal::Num(lexeme.parse().unwrap());
         self.add_token_with_literal(TokenType::Number, literal);
+    }
+
+    fn identifier(&mut self) {
+        while self.peek().is_alphanumeric() || self.peek() == '_' {
+            self.advance();
+        }
+        self.add_token(TokenType::Identifier);
     }
 }
 
@@ -347,6 +355,21 @@ mod tests {
             vec![
                 Token::new(TokenType::Number, "12345", Literal::Num(12345.0), 1),
                 Token::new(TokenType::Number, "123.45", Literal::Num(123.45), 1),
+                Token::new(TokenType::Eof, "", Literal::None, 1)
+            ]
+        )
+    }
+
+    #[test]
+    fn identifiers() {
+        let scanner = Scanner::new("abc def123 ab_cd");
+        let tokens = scanner.scan_tokens();
+        assert_eq!(
+            tokens.unwrap().tokens,
+            vec![
+                Token::new(TokenType::Identifier, "abc", Literal::None, 1),
+                Token::new(TokenType::Identifier, "def123", Literal::None, 1),
+                Token::new(TokenType::Identifier, "ab_cd", Literal::None, 1),
                 Token::new(TokenType::Eof, "", Literal::None, 1)
             ]
         )
