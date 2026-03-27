@@ -51,26 +51,26 @@ pub enum Expr {
 use Expr::*;
 
 impl Expr {
-    fn num(value: impl Into<String>) -> Expr {
+    pub fn number(value: impl Into<String>) -> Expr {
         ENumber {
             value: value.into(),
         }
     }
 
-    fn string(value: impl Into<String>) -> Expr {
+    pub fn string(value: impl Into<String>) -> Expr {
         EString {
             value: value.into(),
         }
     }
 
-    fn bool(value: bool) -> Expr {
+    pub fn bool(value: bool) -> Expr {
         EBool { value }
     }
 
-    fn nil() -> Expr {
+    pub fn nil() -> Expr {
         ENil
     }
-    fn binary(left: Expr, operator: Operator, right: Expr) -> Expr {
+    pub fn binary(left: Expr, operator: Operator, right: Expr) -> Expr {
         EBinary {
             left: left.into(),
             operator,
@@ -78,14 +78,14 @@ impl Expr {
         }
     }
 
-    fn unary(operator: Operator, right: Expr) -> Expr {
+    pub fn unary(operator: Operator, right: Expr) -> Expr {
         EUnary {
             operator,
             right: right.into(),
         }
     }
 
-    fn grouping(expression: Expr) -> Expr {
+    pub fn grouping(expression: Expr) -> Expr {
         EGrouping {
             expression: expression.into(),
         }
