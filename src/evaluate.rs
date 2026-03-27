@@ -1,7 +1,11 @@
 use crate::ast::AST;
 
-/// Run a zerang program
-
+enum ZerangValue {
+    ZNil,
+    ZBoolean(bool),
+    ZNumber(f64),
+    ZString(String),
+}
 pub struct Output {}
 #[derive(Debug)]
 pub struct Error {}

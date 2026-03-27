@@ -30,7 +30,9 @@ impl From<&Token> for Operator {
 }
 
 #[derive(Debug)]
-pub struct Error {}
+pub enum Error {
+    SyntaxError { line: usize, msg: String },
+}
 
 struct Parser {
     tokens: Vec<Token>,
@@ -63,6 +65,21 @@ impl Parser {
         }
     }
 
+    fn expect(&mut self, token_type: TokenType, msg: &str) -> Result<(), Error> {
+        if !self.accept(token_type) {
+            Err(self.syntax_error(msg))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn syntax_error(&self, msg: &str) -> Error {
+        Error::SyntaxError {
+            line: self.tokens[self.n].line,
+            msg: msg.into(),
+        }
+    }
+
     fn last_token(&self) -> &Token {
         &self.tokens[self.n - 1]
     }
@@ -77,30 +94,34 @@ impl Parser {
 
     fn parse_top(&mut self) -> Result<AST, Error> {
         Ok(AST {
-            top: Some(self.parse_expression()),
+            top: Some(self.parse_expression()?),
         })
     }
 
-    fn parse_expression(&mut self) -> Expr {
-        let left = self.parse_primary();
+    fn parse_expression(&mut self) -> Result<Expr, Error> {
+        let left = self.parse_primary()?;
 
         if self.accepts([TPlus, TMinus, TStar, TSlash]) {
             let operator = Operator::from(self.last_token());
-            let right = self.parse_primary();
-            Expr::binary(left, operator, right)
+            let right = self.parse_primary()?;
+            Ok(Expr::binary(left, operator, right))
         } else {
-            left
+            Ok(left)
         }
     }
 
-    fn parse_primary(&mut self) -> Expr {
-        if self.accept(TNumber) {
+    fn parse_primary(&mut self) -> Result<Expr, Error> {
+        Ok(if self.accept(TNumber) {
             Expr::number(self.last_lexeme())
         } else if self.accept(TString) {
             Expr::string(self.last_lexeme())
+        } else if self.accept(TLeftParen) {
+            let expr = self.parse_expression()?;
+            self.expect(TRightParen, "Expected ')' after expression")?;
+            Expr::grouping(expr)
         } else {
-            panic!("Syntax Error")
-        }
+            return Err(self.syntax_error("Expected primary"));
+        })
     }
 }
 
@@ -133,6 +154,20 @@ mod tests {
             parse_string("123"),
             AST {
                 top: Some(Expr::number("123"))
+            }
+        );
+
+        assert_eq!(
+            parse_string("\"hello\""),
+            AST {
+                top: Some(Expr::string("\"hello\""))
+            }
+        );
+
+        assert_eq!(
+            parse_string("(2)"),
+            AST {
+                top: Some(Expr::grouping(Expr::number("2")))
             }
         );
     }
