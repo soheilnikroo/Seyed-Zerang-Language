@@ -1,95 +1,132 @@
-use crate::tokenize::{Literal, Token};
+#[derive(Debug, PartialEq)]
+pub enum Operator {
+    OAdd,
+    OSub,
+    OMul,
+    ODiv,
+    OLt,
+    OLe,
+    OGt,
+    OGe,
+    OEq,
+    ONe,
+    ONot,
+    OAnd,
+    OOr,
+}
+
+use Operator::*;
 
 pub enum Expr {
-    Num {
-        value: f64,
-    },
-    Str {
+    ENumber {
         value: String,
     },
-    Bool {
+    EString {
+        value: String,
+    },
+    EBool {
         value: bool,
     },
-    Nil,
-    Binary {
+    ENil,
+    EBinary {
         left: Box<Expr>,
-        operator: Token,
+        operator: Operator,
         right: Box<Expr>,
     },
-    Unary {
-        operator: Token,
+    EUnary {
+        operator: Operator,
         right: Box<Expr>,
     },
-    Grouping {
+    EGrouping {
         expression: Box<Expr>,
     },
 }
 
+use Expr::*;
+
 impl Expr {
-    fn num(value: f64) -> Expr {
-        Expr::Num { value }
+    fn num(value: impl Into<String>) -> Expr {
+        ENumber {
+            value: value.into(),
+        }
     }
 
-    fn str(value: impl Into<String>) -> Expr {
-        Expr::Str {
+    fn string(value: impl Into<String>) -> Expr {
+        EString {
             value: value.into(),
         }
     }
 
     fn bool(value: bool) -> Expr {
-        Expr::Bool { value }
+        EBool { value }
     }
 
     fn nil() -> Expr {
-        Expr::Nil
+        ENil
     }
-    fn binary(left: Expr, operator: Token, right: Expr) -> Expr {
-        Expr::Binary {
+    fn binary(left: Expr, operator: Operator, right: Expr) -> Expr {
+        EBinary {
             left: left.into(),
             operator,
             right: right.into(),
         }
     }
 
-    fn unary(operator: Token, right: Expr) -> Expr {
-        Expr::Unary {
+    fn unary(operator: Operator, right: Expr) -> Expr {
+        EUnary {
             operator,
             right: right.into(),
         }
     }
 
     fn grouping(expression: Expr) -> Expr {
-        Expr::Grouping {
+        EGrouping {
             expression: expression.into(),
         }
     }
 }
 
+pub fn format_operator(operator: &Operator) -> &'static str {
+    match operator {
+        OAdd => "+",
+        OSub => "-",
+        OMul => "*",
+        ODiv => "/",
+        OLt => ">",
+        OLe => "<=",
+        OGt => ">",
+        OGe => ">=",
+        OEq => "==",
+        ONe => "!=",
+        ONot => "!",
+        OAnd => "and",
+        OOr => "or",
+    }
+}
+
 pub fn format_exp(e: &Expr) -> String {
     match e {
-        Expr::Num { value } => format!("{value}"),
-        Expr::Str { value } => format!("{value:?}"),
-        Expr::Bool { value } => format!("{value}"),
-        Expr::Nil => "nil".to_string(),
-        Expr::Binary {
+        ENumber { value } => format!("{value}"),
+        EString { value } => format!("{value:?}"),
+        EBool { value } => format!("{value}"),
+        ENil => "nil".to_string(),
+        EBinary {
             left,
             operator,
             right,
         } => {
             format!(
                 "({} {} {})",
-                operator.lexeme,
+                format_operator(operator),
                 format_exp(left),
                 format_exp(right)
             )
         }
-        Expr::Unary { operator, right } => {
-            format!("({} {})", operator.lexeme, format_exp(right))
+        EUnary { operator, right } => {
+            format!("({} {})", format_operator(operator), format_exp(right))
         }
-        Expr::Grouping { expression } => {
+        EGrouping { expression } => {
             format!("(group {})", format_exp(expression))
         }
     }
 }
-
-pub fn main() {}
