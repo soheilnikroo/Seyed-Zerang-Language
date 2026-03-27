@@ -1,4 +1,4 @@
-use crate::parser::AST;
+use crate::ast::AST;
 
 /// Run a zerang program
 
