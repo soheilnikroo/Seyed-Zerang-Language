@@ -53,7 +53,10 @@ fn run(source: Source) -> Result<(), Error> {
     let tokens = tokenize(source)?;
     println!("{tokens:?}");
     let ast = parse(tokens)?;
+    println!("{ast:?}");
     let output = evaluate(ast)?;
+    println!("{output:?}");
+
     Ok(())
 }
 

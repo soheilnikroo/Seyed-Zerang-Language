@@ -76,7 +76,7 @@ impl Parser {
     fn syntax_error(&self, msg: &str) -> Error {
         Error::SyntaxError {
             line: self.tokens[self.n].line,
-            msg: msg.into(),
+            msg: format!("{msg} at {:?}", self.tokens[self.n].lexeme),
         }
     }
 
@@ -89,13 +89,15 @@ impl Parser {
     }
 
     fn at_end(&self) -> bool {
-        self.n >= self.tokens.len()
+        self.n >= self.tokens.len() || self.tokens[self.n].token_type == TEof
     }
 
     fn parse_top(&mut self) -> Result<AST, Error> {
-        Ok(AST {
-            top: Some(self.parse_expression()?),
-        })
+        let top = self.parse_expression()?;
+        if !self.at_end() {
+            return Err(self.syntax_error("Unparsed input"));
+        }
+        Ok(AST { top })
     }
 
     fn parse_expression(&mut self) -> Result<Expr, Error> {
@@ -115,6 +117,12 @@ impl Parser {
             Expr::number(self.last_lexeme())
         } else if self.accept(TString) {
             Expr::string(self.last_lexeme())
+        } else if self.accept(TNil) {
+            Expr::nil()
+        } else if self.accept(TTrue) {
+            Expr::bool(true)
+        } else if self.accept(TFalse) {
+            Expr::bool(false)
         } else if self.accept(TLeftParen) {
             let expr = self.parse_expression()?;
             self.expect(TRightParen, "Expected ')' after expression")?;
@@ -153,21 +161,37 @@ mod tests {
         assert_eq!(
             parse_string("123"),
             AST {
-                top: Some(Expr::number("123"))
+                top: Expr::number("123")
             }
         );
 
         assert_eq!(
             parse_string("\"hello\""),
             AST {
-                top: Some(Expr::string("\"hello\""))
+                top: Expr::string("\"hello\"")
+            }
+        );
+
+        assert_eq!(parse_string("nil"), AST { top: Expr::nil() });
+
+        assert_eq!(
+            parse_string("true"),
+            AST {
+                top: Expr::bool(true)
+            }
+        );
+
+        assert_eq!(
+            parse_string("false"),
+            AST {
+                top: Expr::bool(false)
             }
         );
 
         assert_eq!(
             parse_string("(2)"),
             AST {
-                top: Some(Expr::grouping(Expr::number("2")))
+                top: Expr::grouping(Expr::number("2"))
             }
         );
     }
@@ -177,7 +201,7 @@ mod tests {
         assert_eq!(
             parse_string("1 + 2"),
             AST {
-                top: Some(Expr::binary(Expr::number("1"), OAdd, Expr::number("2")))
+                top: Expr::binary(Expr::number("1"), OAdd, Expr::number("2"))
             }
         )
     }
