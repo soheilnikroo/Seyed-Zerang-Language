@@ -91,3 +91,5 @@ pub fn format_exp(e: &Expr) -> String {
         }
     }
 }
+
+pub fn main() {}
