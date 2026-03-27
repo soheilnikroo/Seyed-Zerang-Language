@@ -38,6 +38,13 @@ struct Parser {
 }
 
 impl Parser {
+    fn new(tokens: Tokens) -> Self {
+        Self {
+            tokens: tokens.tokens,
+            n: 0,
+        }
+    }
+
     fn accept(&mut self, token_type: TokenType) -> bool {
         if !self.at_end() && self.tokens[self.n].token_type == token_type {
             self.n += 1;
@@ -68,19 +75,25 @@ impl Parser {
         self.n >= self.tokens.len()
     }
 
+    fn parse_top(&mut self) -> Result<AST, Error> {
+        Ok(AST {
+            top: Some(self.parse_expression()),
+        })
+    }
+
     fn parse_expression(&mut self) -> Expr {
-        let left = self.parse_term();
+        let left = self.parse_primary();
 
         if self.accepts([TPlus, TMinus, TStar, TSlash]) {
             let operator = Operator::from(self.last_token());
-            let right = self.parse_term();
+            let right = self.parse_primary();
             Expr::binary(left, operator, right)
         } else {
             left
         }
     }
 
-    fn parse_term(&mut self) -> Expr {
+    fn parse_primary(&mut self) -> Expr {
         if self.accept(TNumber) {
             Expr::number(self.last_lexeme())
         } else if self.accept(TString) {
@@ -93,15 +106,44 @@ impl Parser {
 
 pub fn parse(tokens: Tokens) -> Result<AST, Error> {
     println!("parsing");
-    Ok(AST { top: None })
+    Parser::new(tokens).parse_top()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn parse_string(source: &str) -> AST {
+        use crate::reader::Source;
+        use crate::tokenize::tokenize;
+
+        let source = Source::from(source);
+        let tokens = tokenize(source).unwrap();
+        parse(tokens).unwrap()
+    }
+
     #[test]
     fn its_alive() {
         assert_eq!(true, true)
+    }
+
+    #[test]
+    fn test_primary() {
+        assert_eq!(
+            parse_string("123"),
+            AST {
+                top: Some(Expr::number("123"))
+            }
+        );
+    }
+
+    #[test]
+    fn test_binary() {
+        assert_eq!(
+            parse_string("1 + 2"),
+            AST {
+                top: Some(Expr::binary(Expr::number("1"), OAdd, Expr::number("2")))
+            }
+        )
     }
 }

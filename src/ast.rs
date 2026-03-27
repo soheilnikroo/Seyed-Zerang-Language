@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct AST {
     pub top: Option<Expr>,
 }
@@ -22,7 +22,7 @@ pub enum Operator {
 
 use Operator::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     ENumber {
         value: String,
