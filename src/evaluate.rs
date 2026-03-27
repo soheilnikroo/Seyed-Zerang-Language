@@ -4,7 +4,7 @@ use crate::ast::{
     Expr::{self, *},
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ZerangValue {
     ZNil,
     ZBoolean(bool),
@@ -41,9 +41,19 @@ pub fn evaluate_expression(expr: &Expr) -> Result<ZerangValue, Error> {
                 // Numeric operations
                 (ZNumber(x), OAdd, ZNumber(y)) => ZNumber(x + y),
                 (ZNumber(x), OSub, ZNumber(y)) => ZNumber(x - y),
+                (ZNumber(x), OMul, ZNumber(y)) => ZNumber(x * y),
+                (ZNumber(x), ODiv, ZNumber(y)) => ZNumber(x / y),
+                (ZNumber(x), OLt, ZNumber(y)) => ZBoolean(x < y),
+                (ZNumber(x), OLe, ZNumber(y)) => ZBoolean(x <= y),
+                (ZNumber(x), OGt, ZNumber(y)) => ZBoolean(x > y),
+                (ZNumber(x), OGe, ZNumber(y)) => ZBoolean(x >= y),
 
                 // String operations
                 (ZString(x), OAdd, ZString(y)) => ZString(format!("{x}{y}")),
+
+                // Equality works with any combination of values
+                (x, OEq, y) => ZBoolean(x == y),
+                (x, ONe, y) => ZBoolean(x != y),
 
                 _ => panic!("Unsupported operation"),
             }

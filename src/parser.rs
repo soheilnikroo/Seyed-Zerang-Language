@@ -103,7 +103,18 @@ impl Parser {
     fn parse_expression(&mut self) -> Result<Expr, Error> {
         let left = self.parse_primary()?;
 
-        if self.accepts([TPlus, TMinus, TStar, TSlash]) {
+        if self.accepts([
+            TPlus,
+            TMinus,
+            TStar,
+            TSlash,
+            TLess,
+            TLessEqual,
+            TGreater,
+            TGreaterEqual,
+            TEqualEqual,
+            TBangEqual,
+        ]) {
             let operator = Operator::from(self.last_token());
             let right = self.parse_primary()?;
             Ok(Expr::binary(left, operator, right))
