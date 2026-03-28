@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-struct Environment<V> {
+pub struct Environment<V> {
     vars: HashMap<String, V>,
 }
 
 impl<V> Environment<V> {
-    pub fn new() -> Self<V> {
+    pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
         }

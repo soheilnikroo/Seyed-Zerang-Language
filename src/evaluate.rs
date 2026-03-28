@@ -39,6 +39,8 @@ impl Display for ZerangValue {
 
 pub type Output = ();
 
+type Environment = crate::environment::Environment<ZerangValue>;
+
 #[derive(Debug)]
 pub enum Error {
     ZeroDivision,
@@ -47,22 +49,25 @@ pub enum Error {
     NotFound(String),
 }
 
-pub fn execute_statements(statements: &Vec<Statement>) -> Result<(), Error> {
+pub fn execute_statements(
+    statements: &Vec<Statement>,
+    environment: &Environment,
+) -> Result<(), Error> {
     for stmt in statements.iter() {
-        execute_statement(stmt)?
+        execute_statement(stmt, environment)?
     }
 
     Ok(())
 }
 
-pub fn execute_statement(statement: &Statement) -> Result<(), Error> {
+pub fn execute_statement(statement: &Statement, environment: &Environment) -> Result<(), Error> {
     match statement {
         Statement::SPrint { expr } => {
-            let value = evaluate_expression(expr)?;
+            let value = evaluate_expression(expr, environment)?;
             println!("{value}");
         }
         Statement::SExpression { expr } => {
-            evaluate_expression(expr)?;
+            evaluate_expression(expr, environment)?;
         }
         Statement::SVar { name, initializer } => {
             todo!()
@@ -73,11 +78,12 @@ pub fn execute_statement(statement: &Statement) -> Result<(), Error> {
 }
 
 pub fn evaluate(ast: AST) -> Result<Output, Error> {
-    execute_statements(&ast.top)?;
+    let environment = Environment::new();
+    execute_statements(&ast.top, &environment)?;
     Ok(())
 }
 
-pub fn evaluate_expression(expr: &Expr) -> Result<ZerangValue, Error> {
+pub fn evaluate_expression(expr: &Expr, environment: &Environment) -> Result<ZerangValue, Error> {
     Ok(match expr {
         ENumber { value } => ZNumber(value.parse().unwrap()),
         EString { value } => ZString(value.clone()),
@@ -88,8 +94,8 @@ pub fn evaluate_expression(expr: &Expr) -> Result<ZerangValue, Error> {
             operator,
             right,
         } => {
-            let lv = evaluate_expression(left)?;
-            let rv = evaluate_expression(right)?;
+            let lv = evaluate_expression(left, environment)?;
+            let rv = evaluate_expression(right, environment)?;
             match (lv, operator, rv) {
                 // Numeric operations
                 (ZNumber(x), OAdd, ZNumber(y)) => ZNumber(x + y),
@@ -120,7 +126,7 @@ pub fn evaluate_expression(expr: &Expr) -> Result<ZerangValue, Error> {
             }
         }
         EUnary { operator, right } => {
-            let rv = evaluate_expression(right)?;
+            let rv = evaluate_expression(right, environment)?;
             match (operator, rv) {
                 (OSub, ZNumber(x)) => ZNumber(-x),
                 (ONot, x) => ZBoolean(!x.is_truthy()),
@@ -129,7 +135,7 @@ pub fn evaluate_expression(expr: &Expr) -> Result<ZerangValue, Error> {
                 }
             }
         }
-        EGrouping { expression } => evaluate_expression(expression)?,
+        EGrouping { expression } => evaluate_expression(expression, environment)?,
     })
 }
 
