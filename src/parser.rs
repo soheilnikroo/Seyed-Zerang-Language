@@ -1,7 +1,7 @@
 use std::usize;
 
 use crate::{
-    ast::{AST, Expr, Operator},
+    ast::{AST, Expr, Operator, Statement},
     tokenize::{Token, TokenType, Tokens},
 };
 
@@ -65,7 +65,7 @@ impl Parser {
         }
     }
 
-    fn expect(&mut self, token_type: TokenType, msg: &str) -> Result<(), Error> {
+    fn consume(&mut self, token_type: TokenType, msg: &str) -> Result<(), Error> {
         if !self.accept(token_type) {
             Err(self.syntax_error(msg))
         } else {
@@ -98,6 +98,32 @@ impl Parser {
             return Err(self.syntax_error("Unparsed input"));
         }
         Ok(AST { top })
+    }
+
+    fn parse_statements(&mut self) -> Result<Vec<Statement>, Error> {
+        let mut statements = Vec::new();
+        while !self.at_end() {
+            statements.push(self.parse_statement()?);
+        }
+        Ok(statements)
+    }
+
+    fn parse_statement(&mut self) -> Result<Statement, Error> {
+        if self.accept(TPrint) {
+            self.parse_print_statement()
+        } else {
+            self.parse_expression_statement()
+        }
+    }
+
+    fn parse_print_statement(&mut self) -> Result<Statement, Error> {
+        let value = self.parse_expression()?;
+        self.consume(TSemiColon, "Expect ';' after value.")?;
+        Ok(Statement::print(value))
+    }
+
+    fn parse_expression_statement(&mut self) -> Result<Statement, Error> {
+        todo!()
     }
 
     fn parse_expression(&mut self) -> Result<Expr, Error> {
@@ -146,7 +172,7 @@ impl Parser {
             Expr::bool(false)
         } else if self.accept(TLeftParen) {
             let expr = self.parse_expression()?;
-            self.expect(TRightParen, "Expected ')' after expression")?;
+            self.consume(TRightParen, "Expected ')' after expression")?;
             Expr::grouping(expr)
         } else {
             return Err(self.syntax_error("Expected primary"));

@@ -5,7 +5,6 @@ mod reader;
 mod tokenize;
 
 use std::{
-    collections::HashMap,
     env::args,
     io::{Write, stdin, stdout},
 };

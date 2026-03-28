@@ -1,6 +1,5 @@
-use std::fs::OpenOptions;
-
 use crate::ast::Operator::{self, *};
+use crate::ast::Statement;
 use crate::ast::{
     AST,
     Expr::{self, *},
@@ -34,8 +33,25 @@ pub enum Error {
     UnsupportedUnaryOp(Operator, ZerangValue),
 }
 
+pub fn interpret(statements: &Vec<Statement>) -> Result<(), Error> {
+    todo!()
+}
+
+pub fn execute_statement(statement: &Statement) -> Result<(), Error> {
+    match statement {
+        Statement::SPrint { expr } => {
+            let value = evaluate_expression(expr)?;
+            println!("{value:?}");
+        }
+        Statement::SExpression { expr } => {
+            evaluate_expression(expr)?;
+        }
+    }
+
+    Ok(())
+}
+
 pub fn evaluate(ast: AST) -> Result<Output, Error> {
-    println!("Evaluating");
     evaluate_expression(&ast.top)
 }
 

@@ -114,6 +114,21 @@ impl Expr {
     }
 }
 
+pub enum Statement {
+    SPrint { expr: Expr },
+    SExpression { expr: Expr },
+}
+
+impl Statement {
+    pub fn print(e: Expr) -> Statement {
+        Statement::SPrint { expr: e }
+    }
+
+    pub fn expression(e: Expr) -> Statement {
+        Statement::SExpression { expr: e }
+    }
+}
+
 pub fn format_operator(operator: &Operator) -> &'static str {
     match operator {
         OAdd => "+",
