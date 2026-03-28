@@ -103,19 +103,28 @@ fn run(source: Source) -> Result<(), Error> {
     Ok(())
 }
 
+fn run_interpreter(interpreter: &mut evaluate::Interpreter, source: Source) -> Result<(), Error> {
+    let tokens = tokenize(source)?;
+    let ast = parse(tokens)?;
+    interpreter.evaluate(ast)?;
+
+    Ok(())
+}
+
 fn run_file(filename: &str) -> Result<(), Error> {
     let source = read_source(filename)?;
     run(source)
 }
 
 fn run_prompt() {
+    let mut interpreter = evaluate::Interpreter::new();
     loop {
         stdout().write(b"> ").unwrap();
         stdout().flush().unwrap();
         let mut buffer = String::new();
         stdin().read_line(&mut buffer).unwrap();
         let source = Source { contents: buffer };
-        match run(source) {
+        match run_interpreter(&mut interpreter, source) {
             Ok(_) => {}
             Err(err) => {
                 report_errors(err);

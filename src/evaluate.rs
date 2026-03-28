@@ -49,6 +49,23 @@ pub enum Error {
     NotFound(String),
 }
 
+pub struct Interpreter {
+    top_level: Environment,
+}
+
+impl Interpreter {
+    pub fn new() -> Self {
+        Self {
+            top_level: Environment::new(),
+        }
+    }
+
+    pub fn evaluate(&mut self, ast: AST) -> Result<Output, Error> {
+        execute_statements(&ast.top, &mut self.top_level)?;
+        Ok(())
+    }
+}
+
 pub fn evaluate(ast: AST) -> Result<Output, Error> {
     let mut environment = Environment::new();
     execute_statements(&ast.top, &mut environment)?;
