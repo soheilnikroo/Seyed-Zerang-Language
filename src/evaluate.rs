@@ -1,9 +1,12 @@
+use std::fmt::Display;
+
 use crate::ast::Operator::{self, *};
 use crate::ast::Statement;
 use crate::ast::{
     AST,
     Expr::{self, *},
 };
+use ZerangValue::*;
 
 #[derive(Debug, PartialEq)]
 pub enum ZerangValue {
@@ -22,26 +25,41 @@ impl ZerangValue {
     }
 }
 
-use ZerangValue::*;
+impl Display for ZerangValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            ZNil => f.write_str("nil"),
+            ZBoolean(value) => f.write_str(&format!("{value}")),
+            ZNumber(value) => f.write_str(&format!("{value}")),
+            ZString(value) => f.write_str(value),
+        }?;
+        Ok(())
+    }
+}
 
-pub type Output = ZerangValue;
+pub type Output = ();
 
 #[derive(Debug)]
 pub enum Error {
     ZeroDivision,
-    UnsupportedOp(ZerangValue, Operator, ZerangValue),
+    UnsupportedBinOp(ZerangValue, Operator, ZerangValue),
     UnsupportedUnaryOp(Operator, ZerangValue),
+    NotFound(String),
 }
 
-pub fn interpret(statements: &Vec<Statement>) -> Result<(), Error> {
-    todo!()
+pub fn execute_statements(statements: &Vec<Statement>) -> Result<(), Error> {
+    for stmt in statements.iter() {
+        execute_statement(stmt)?
+    }
+
+    Ok(())
 }
 
 pub fn execute_statement(statement: &Statement) -> Result<(), Error> {
     match statement {
         Statement::SPrint { expr } => {
             let value = evaluate_expression(expr)?;
-            println!("{value:?}");
+            println!("{value}");
         }
         Statement::SExpression { expr } => {
             evaluate_expression(expr)?;
@@ -52,7 +70,8 @@ pub fn execute_statement(statement: &Statement) -> Result<(), Error> {
 }
 
 pub fn evaluate(ast: AST) -> Result<Output, Error> {
-    evaluate_expression(&ast.top)
+    execute_statements(&ast.top)?;
+    Ok(())
 }
 
 pub fn evaluate_expression(expr: &Expr) -> Result<ZerangValue, Error> {
@@ -93,7 +112,7 @@ pub fn evaluate_expression(expr: &Expr) -> Result<ZerangValue, Error> {
                 (x, ONe, y) => ZBoolean(x != y),
 
                 (lv, operator, rv) => {
-                    return Err(Error::UnsupportedOp(lv, *operator, rv));
+                    return Err(Error::UnsupportedBinOp(lv, *operator, rv));
                 }
             }
         }

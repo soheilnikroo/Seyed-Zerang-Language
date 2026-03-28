@@ -12,7 +12,7 @@ impl Source {
 
 #[derive(Debug)]
 pub struct Error {
-    msg: String,
+    pub msg: String,
 }
 
 impl From<io::Error> for Error {

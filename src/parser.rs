@@ -93,7 +93,7 @@ impl Parser {
     }
 
     fn parse_top(&mut self) -> Result<AST, Error> {
-        let top = self.parse_expression()?;
+        let top = self.parse_statements()?;
         if !self.at_end() {
             return Err(self.syntax_error("Unparsed input"));
         }
@@ -123,7 +123,9 @@ impl Parser {
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement, Error> {
-        todo!()
+        let value = self.parse_expression()?;
+        self.consume(TSemiColon, "Expect ';' after value.")?;
+        Ok(Statement::expression(value))
     }
 
     fn parse_expression(&mut self) -> Result<Expr, Error> {
@@ -181,7 +183,6 @@ impl Parser {
 }
 
 pub fn parse(tokens: Tokens) -> Result<AST, Error> {
-    println!("parsing");
     Parser::new(tokens).parse_top()
 }
 
@@ -198,6 +199,15 @@ mod tests {
         parse(tokens).unwrap()
     }
 
+    fn parse_expr_string(source: &str) -> Expr {
+        use crate::reader::Source;
+        use crate::tokenize::tokenize;
+
+        let source = Source::from(source);
+        let tokens = tokenize(source).unwrap();
+        Parser::new(tokens).parse_expression().unwrap()
+    }
+
     #[test]
     fn its_alive() {
         assert_eq!(true, true)
@@ -205,51 +215,24 @@ mod tests {
 
     #[test]
     fn test_primary() {
-        assert_eq!(
-            parse_string("123"),
-            AST {
-                top: Expr::number("123")
-            }
-        );
+        assert_eq!(parse_expr_string("123"), Expr::number("123"));
 
-        assert_eq!(
-            parse_string("\"hello\""),
-            AST {
-                top: Expr::string("hello")
-            }
-        );
+        assert_eq!(parse_expr_string("\"hello\""), Expr::string("hello"));
 
-        assert_eq!(parse_string("nil"), AST { top: Expr::nil() });
+        assert_eq!(parse_expr_string("nil"), Expr::nil());
 
-        assert_eq!(
-            parse_string("true"),
-            AST {
-                top: Expr::bool(true)
-            }
-        );
+        assert_eq!(parse_expr_string("true"), Expr::bool(true));
 
-        assert_eq!(
-            parse_string("false"),
-            AST {
-                top: Expr::bool(false)
-            }
-        );
+        assert_eq!(parse_expr_string("false"), Expr::bool(false));
 
-        assert_eq!(
-            parse_string("(2)"),
-            AST {
-                top: Expr::grouping(Expr::number("2"))
-            }
-        );
+        assert_eq!(parse_expr_string("(2)"), Expr::grouping(Expr::number("2")));
     }
 
     #[test]
     fn test_binary() {
         assert_eq!(
-            parse_string("1 + 2"),
-            AST {
-                top: Expr::binary(Expr::number("1"), OAdd, Expr::number("2"))
-            }
+            parse_expr_string("1 + 2"),
+            Expr::binary(Expr::number("1"), OAdd, Expr::number("2"))
         )
     }
 }

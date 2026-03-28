@@ -48,13 +48,56 @@ impl From<evaluate::Error> for Error {
     }
 }
 
+fn report_errors(err: Error) {
+    match err {
+        Error::Read(e) => {
+            eprintln!("{}", e.msg);
+        }
+        Error::Tokenize(e) => {
+            use crate::tokenize::ScanError;
+            for scan_error in e.iter() {
+                match scan_error {
+                    ScanError::UnexpectedCharacter { line, ch } => {
+                        eprintln!("Line {line}: Unexpected character {ch:?}");
+                    }
+                    ScanError::UnterminatedString { line } => {
+                        eprintln!("Line {line}: Unterminated string");
+                    }
+                }
+            }
+        }
+        Error::Parse(e) => {
+            use crate::parser::Error;
+            match e {
+                Error::SyntaxError { line, msg } => {
+                    eprintln!("Line {line}: Syntax error: {msg}");
+                }
+            }
+        }
+        Error::Evaluate(e) => {
+            use crate::evaluate::Error::*;
+            match e {
+                ZeroDivision => {
+                    eprintln!("Division by zero");
+                }
+                UnsupportedBinOp(left, op, right) => {
+                    eprintln!("Unsupported operation: {left:?} {op} {right:?}");
+                }
+                UnsupportedUnaryOp(op, value) => {
+                    eprintln!("Unsupported operation: {op}{value:?}");
+                }
+                NotFound(name) => {
+                    eprintln!("{name} not found");
+                }
+            }
+        }
+    }
+}
+
 fn run(source: Source) -> Result<(), Error> {
     let tokens = tokenize(source)?;
-    println!("{tokens:?}");
     let ast = parse(tokens)?;
-    println!("{ast:?}");
-    let output = evaluate(ast)?;
-    println!("{output:?}");
+    evaluate(ast)?;
 
     Ok(())
 }
@@ -74,7 +117,7 @@ fn run_prompt() {
         match run(source) {
             Ok(_) => {}
             Err(err) => {
-                eprintln!("{err:?}");
+                report_errors(err);
             }
         }
     }
@@ -93,7 +136,7 @@ fn main() {
                 println!("Success!")
             }
             Err(err) => {
-                eprintln!("It failed {err:?}")
+                report_errors(err);
             }
         }
     } else {

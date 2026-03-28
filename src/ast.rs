@@ -1,6 +1,6 @@
 #[derive(Debug, PartialEq)]
 pub struct AST {
-    pub top: Expr,
+    pub top: Vec<Statement>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -114,6 +114,7 @@ impl Expr {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     SPrint { expr: Expr },
     SExpression { expr: Expr },

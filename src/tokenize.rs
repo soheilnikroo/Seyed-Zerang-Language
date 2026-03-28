@@ -85,9 +85,16 @@ pub struct Tokens {
 #[derive(Debug)]
 pub struct Error(Vec<ScanError>);
 
+impl Error {
+    pub fn iter(&self) -> std::slice::Iter<'_, ScanError> {
+        self.0.iter()
+    }
+}
+
 #[derive(Debug)]
-enum ScanError {
+pub enum ScanError {
     UnexpectedCharacter { line: usize, ch: char },
+    UnterminatedString { line: usize },
 }
 
 struct Scanner {
@@ -298,7 +305,6 @@ impl Scanner {
 }
 
 pub fn tokenize(source: Source) -> Result<Tokens, Error> {
-    println!("Tokenizing");
     Scanner::new(&source.contents).scan_tokens()
 }
 
