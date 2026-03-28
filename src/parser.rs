@@ -101,7 +101,7 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> Result<Expr, Error> {
-        let left = self.parse_primary()?;
+        let left = self.parse_unary()?;
 
         if self.accepts([
             TPlus,
@@ -116,10 +116,19 @@ impl Parser {
             TBangEqual,
         ]) {
             let operator = Operator::from(self.last_token());
-            let right = self.parse_primary()?;
+            let right = self.parse_unary()?;
             Ok(Expr::binary(left, operator, right))
         } else {
             Ok(left)
+        }
+    }
+
+    fn parse_unary(&mut self) -> Result<Expr, Error> {
+        if self.accepts([TMinus, TBang]) {
+            let operator = Operator::from(self.last_token());
+            Ok(Expr::unary(operator, self.parse_unary()?))
+        } else {
+            self.parse_primary()
         }
     }
 
@@ -127,7 +136,8 @@ impl Parser {
         Ok(if self.accept(TNumber) {
             Expr::number(self.last_lexeme())
         } else if self.accept(TString) {
-            Expr::string(self.last_lexeme())
+            let lexeme = self.last_lexeme();
+            Expr::string(&lexeme[1..lexeme.len() - 1])
         } else if self.accept(TNil) {
             Expr::nil()
         } else if self.accept(TTrue) {
@@ -179,7 +189,7 @@ mod tests {
         assert_eq!(
             parse_string("\"hello\""),
             AST {
-                top: Expr::string("\"hello\"")
+                top: Expr::string("hello")
             }
         );
 

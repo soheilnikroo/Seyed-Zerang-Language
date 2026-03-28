@@ -1,4 +1,6 @@
-use crate::ast::Operator::*;
+use std::fs::OpenOptions;
+
+use crate::ast::Operator::{self, *};
 use crate::ast::{
     AST,
     Expr::{self, *},
@@ -12,12 +14,25 @@ pub enum ZerangValue {
     ZString(String),
 }
 
+impl ZerangValue {
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            ZNil | ZBoolean(false) => false,
+            _ => true,
+        }
+    }
+}
+
 use ZerangValue::*;
 
 pub type Output = ZerangValue;
 
 #[derive(Debug)]
-pub struct Error {}
+pub enum Error {
+    ZeroDivision,
+    UnsupportedOp(ZerangValue, Operator, ZerangValue),
+    UnsupportedUnaryOp(Operator, ZerangValue),
+}
 
 pub fn evaluate(ast: AST) -> Result<Output, Error> {
     println!("Evaluating");
@@ -42,7 +57,13 @@ pub fn evaluate_expression(expr: &Expr) -> Result<ZerangValue, Error> {
                 (ZNumber(x), OAdd, ZNumber(y)) => ZNumber(x + y),
                 (ZNumber(x), OSub, ZNumber(y)) => ZNumber(x - y),
                 (ZNumber(x), OMul, ZNumber(y)) => ZNumber(x * y),
-                (ZNumber(x), ODiv, ZNumber(y)) => ZNumber(x / y),
+                (ZNumber(x), ODiv, ZNumber(y)) => {
+                    if y == 0.0 {
+                        return Err(Error::ZeroDivision);
+                    } else {
+                        ZNumber(x / y)
+                    }
+                }
                 (ZNumber(x), OLt, ZNumber(y)) => ZBoolean(x < y),
                 (ZNumber(x), OLe, ZNumber(y)) => ZBoolean(x <= y),
                 (ZNumber(x), OGt, ZNumber(y)) => ZBoolean(x > y),
@@ -55,15 +76,22 @@ pub fn evaluate_expression(expr: &Expr) -> Result<ZerangValue, Error> {
                 (x, OEq, y) => ZBoolean(x == y),
                 (x, ONe, y) => ZBoolean(x != y),
 
-                _ => panic!("Unsupported operation"),
+                (lv, operator, rv) => {
+                    return Err(Error::UnsupportedOp(lv, *operator, rv));
+                }
             }
         }
         EUnary { operator, right } => {
-            todo!()
+            let rv = evaluate_expression(right)?;
+            match (operator, rv) {
+                (OSub, ZNumber(x)) => ZNumber(-x),
+                (ONot, x) => ZBoolean(!x.is_truthy()),
+                (operator, rv) => {
+                    return Err(Error::UnsupportedUnaryOp(*operator, rv));
+                }
+            }
         }
-        EGrouping { expression } => {
-            todo!()
-        }
+        EGrouping { expression } => evaluate_expression(expression)?,
     })
 }
 

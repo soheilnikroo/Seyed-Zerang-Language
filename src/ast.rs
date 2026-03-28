@@ -3,7 +3,7 @@ pub struct AST {
     pub top: Expr,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Operator {
     OAdd,
     OSub,
@@ -19,6 +19,28 @@ pub enum Operator {
     OAnd,
     OOr,
 }
+
+impl Display for Operator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.write_str(match self {
+            OAdd => "+",
+            OSub => "-",
+            OMul => "*",
+            ODiv => "/",
+            OLt => ">",
+            OLe => "<=",
+            OGt => ">",
+            OGe => ">=",
+            OEq => "==",
+            ONe => "!=",
+            ONot => "!",
+            OAnd => "and",
+            OOr => "or",
+        })
+    }
+}
+
+use std::fmt::{Display, Error};
 
 use Operator::*;
 
