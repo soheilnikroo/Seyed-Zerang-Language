@@ -1,3 +1,7 @@
+use Expr::*;
+use Operator::*;
+use std::fmt::Display;
+
 #[derive(Debug, PartialEq)]
 pub struct AST {
     pub top: Vec<Statement>,
@@ -40,10 +44,6 @@ impl Display for Operator {
     }
 }
 
-use std::fmt::{Display, Error};
-
-use Operator::*;
-
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     ENumber {
@@ -69,8 +69,6 @@ pub enum Expr {
         expression: Box<Expr>,
     },
 }
-
-use Expr::*;
 
 impl Expr {
     pub fn number(value: impl Into<String>) -> Expr {
@@ -118,15 +116,23 @@ impl Expr {
 pub enum Statement {
     SPrint { expr: Expr },
     SExpression { expr: Expr },
+    SVar { name: String, initializer: Expr },
 }
 
 impl Statement {
-    pub fn print(e: Expr) -> Statement {
-        Statement::SPrint { expr: e }
+    pub fn print(e: Expr) -> Self {
+        Self::SPrint { expr: e }
     }
 
-    pub fn expression(e: Expr) -> Statement {
-        Statement::SExpression { expr: e }
+    pub fn expression(e: Expr) -> Self {
+        Self::SExpression { expr: e }
+    }
+
+    pub fn var(name: impl Into<String>, initializer: Expr) -> Self {
+        Self::SVar {
+            name: name.into(),
+            initializer,
+        }
     }
 }
 

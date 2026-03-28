@@ -1,4 +1,5 @@
 mod ast;
+mod environment;
 mod evaluate;
 mod parser;
 mod reader;

@@ -64,6 +64,9 @@ pub fn execute_statement(statement: &Statement) -> Result<(), Error> {
         Statement::SExpression { expr } => {
             evaluate_expression(expr)?;
         }
+        Statement::SVar { name, initializer } => {
+            todo!()
+        }
     }
 
     Ok(())
