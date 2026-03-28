@@ -8,7 +8,7 @@ use crate::ast::{
 };
 use ZerangValue::*;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ZerangValue {
     ZNil,
     ZBoolean(bool),
@@ -49,9 +49,15 @@ pub enum Error {
     NotFound(String),
 }
 
+pub fn evaluate(ast: AST) -> Result<Output, Error> {
+    let mut environment = Environment::new();
+    execute_statements(&ast.top, &mut environment)?;
+    Ok(())
+}
+
 pub fn execute_statements(
     statements: &Vec<Statement>,
-    environment: &Environment,
+    environment: &mut Environment,
 ) -> Result<(), Error> {
     for stmt in statements.iter() {
         execute_statement(stmt, environment)?
@@ -60,7 +66,10 @@ pub fn execute_statements(
     Ok(())
 }
 
-pub fn execute_statement(statement: &Statement, environment: &Environment) -> Result<(), Error> {
+pub fn execute_statement(
+    statement: &Statement,
+    environment: &mut Environment,
+) -> Result<(), Error> {
     match statement {
         Statement::SPrint { expr } => {
             let value = evaluate_expression(expr, environment)?;
@@ -69,17 +78,15 @@ pub fn execute_statement(statement: &Statement, environment: &Environment) -> Re
         Statement::SExpression { expr } => {
             evaluate_expression(expr, environment)?;
         }
-        Statement::SVar { name, initializer } => {
-            todo!()
+        Statement::SVarDecl { name, initializer } => {
+            let iv = match initializer {
+                Some(v) => evaluate_expression(v, environment)?,
+                None => ZNil,
+            };
+            environment.declare(name, iv);
         }
     }
 
-    Ok(())
-}
-
-pub fn evaluate(ast: AST) -> Result<Output, Error> {
-    let environment = Environment::new();
-    execute_statements(&ast.top, &environment)?;
     Ok(())
 }
 
@@ -89,6 +96,7 @@ pub fn evaluate_expression(expr: &Expr, environment: &Environment) -> Result<Zer
         EString { value } => ZString(value.clone()),
         EBool { value } => ZBoolean(*value),
         ENil => ZNil,
+        EVariable { name } => environment.lookup(name).unwrap().clone(),
         EBinary {
             left,
             operator,

@@ -103,9 +103,17 @@ impl Parser {
     fn parse_statements(&mut self) -> Result<Vec<Statement>, Error> {
         let mut statements = Vec::new();
         while !self.at_end() {
-            statements.push(self.parse_statement()?);
+            statements.push(self.parse_declaration()?);
         }
         Ok(statements)
+    }
+
+    fn parse_declaration(&mut self) -> Result<Statement, Error> {
+        if self.accept(TVar) {
+            self.parse_var_declaration()
+        } else {
+            self.parse_statement()
+        }
     }
 
     fn parse_statement(&mut self) -> Result<Statement, Error> {
@@ -126,6 +134,17 @@ impl Parser {
         let value = self.parse_expression()?;
         self.consume(TSemiColon, "Expect ';' after value.")?;
         Ok(Statement::expression(value))
+    }
+
+    fn parse_var_declaration(&mut self) -> Result<Statement, Error> {
+        self.consume(TIdentifier, "Expect variable name")?;
+        let name = self.last_lexeme().clone();
+        let mut initializer = None;
+        if self.accept(TEqual) {
+            initializer = Some(self.parse_expression()?);
+        }
+        self.consume(TSemiColon, "Expect ';' after variable declaration.")?;
+        Ok(Statement::var_decl(name, initializer))
     }
 
     fn parse_expression(&mut self) -> Result<Expr, Error> {
@@ -176,6 +195,8 @@ impl Parser {
             let expr = self.parse_expression()?;
             self.consume(TRightParen, "Expected ')' after expression")?;
             Expr::grouping(expr)
+        } else if self.accept(TIdentifier) {
+            Expr::variable(self.last_lexeme())
         } else {
             return Err(self.syntax_error("Expected primary"));
         })
