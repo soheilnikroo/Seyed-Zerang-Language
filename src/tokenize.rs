@@ -1,4 +1,8 @@
 use crate::reader::Source;
+use TokenType::*;
+use std::iter::Peekable;
+use std::ops::Range;
+use std::str::CharIndices;
 
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
@@ -48,38 +52,36 @@ pub enum TokenType {
     TVar,
     TWhile,
 
+    TIgnore,
     TEof,
 }
 
-use TokenType::*;
-
 #[derive(Debug, PartialEq)]
-pub enum Literal {
-    Str(String),
-    Num(f64),
-    None,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Token {
+pub struct Token<'a> {
     pub token_type: TokenType,
-    pub lexeme: String,
+    pub lexeme: &'a str,
     pub line: usize,
 }
 
-impl Token {
-    fn new(token_type: TokenType, lexeme: impl Into<String>, line: usize) -> Self {
-        Self {
+impl<'a> Token<'a> {
+    pub fn new(token_type: TokenType, lexeme: &'a str, line: usize) -> Token<'a> {
+        Token {
             token_type,
-            lexeme: lexeme.into(),
+            lexeme,
             line,
         }
     }
 }
 
 #[derive(Debug)]
-pub struct Tokens {
-    pub tokens: Vec<Token>,
+pub struct Tokens<'a> {
+    pub tokens: Vec<Token<'a>>,
+}
+
+#[derive(Debug)]
+pub enum ScanError {
+    UnexpectedCharacter { line: usize, ch: char },
+    UnterminatedString { line: usize },
 }
 
 #[derive(Debug)]
@@ -91,221 +93,229 @@ impl Error {
     }
 }
 
-#[derive(Debug)]
-pub enum ScanError {
-    UnexpectedCharacter { line: usize, ch: char },
-    UnterminatedString { line: usize },
-}
+type Chars<'a> = Peekable<CharIndices<'a>>;
 
-struct Scanner {
-    source: Vec<char>,
-    tokens: Vec<Token>,
+fn accept(
+    chars: &mut Chars,
+    token_type: TokenType,
     start: usize,
-    current: usize,
-    line: usize,
-    errors: Vec<ScanError>,
+) -> Option<(TokenType, Range<usize>)> {
+    let (n, _) = chars.next()?;
+    Some((token_type, start..n + 1))
 }
 
-impl Scanner {
-    fn new(source: &str) -> Self {
-        Self {
-            source: source.chars().collect(),
-            tokens: Vec::new(),
-            start: 0,
-            current: 0,
-            line: 1,
-            errors: Vec::new(),
+fn peek(chars: &mut Chars, ch: char) -> bool {
+    if let Some(&(_, c)) = chars.peek() {
+        c == ch
+    } else {
+        false
+    }
+}
+
+fn map_keyword(lexeme: &str) -> TokenType {
+    match lexeme {
+        "and" => TAnd,
+        "class" => TClass,
+        "else" => TElse,
+        "false" => TFalse,
+        "for" => TFor,
+        "fun" => TFun,
+        "if" => TIf,
+        "nil" => TNil,
+        "or" => TOr,
+        "print" => TPrint,
+        "return" => TReturn,
+        "super" => TSuper,
+        "this" => TThis,
+        "true" => TTrue,
+        "var" => TVar,
+        "while" => TWhile,
+        _ => TIdentifier,
+    }
+}
+
+fn scan_tokens<'a>(source: &'a String) -> Result<Tokens<'a>, Error> {
+    let mut chars = source.char_indices().peekable();
+    let mut tokens = Vec::new();
+    let line = 1;
+    while let Some((mut toktype, range)) = scan_token(&mut chars) {
+        if toktype == TIgnore {
+            continue;
         }
-    }
-
-    fn error(&mut self, err: ScanError) {
-        self.errors.push(err);
-    }
-
-    fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
-    }
-
-    fn scan_tokens(mut self) -> Result<Tokens, Error> {
-        while !self.is_at_end() {
-            self.start = self.current;
-            self.scan_token();
+        let lexeme = &source[range];
+        if toktype == TIdentifier {
+            toktype = map_keyword(lexeme);
         }
-        self.tokens.push(Token::new(TEof, "", self.line));
-
-        if self.errors.len() == 0 {
-            Ok(Tokens {
-                tokens: self.tokens,
-            })
-        } else {
-            Err(Error(self.errors))
-        }
+        tokens.push(Token::new(toktype, lexeme, line));
     }
+    tokens.push(Token::new(TEof, "", line));
+    Ok(Tokens { tokens })
+}
 
-    fn advance(&mut self) -> char {
-        let c = self.source[self.current];
-        self.current += 1;
-        c
-    }
+fn scan_token(chars: &mut Chars) -> Option<(TokenType, Range<usize>)> {
+    scan_simple_symbol(chars)
+        .or_else(|| scan_compare_symbol(chars))
+        .or_else(|| ignore_whitespace(chars))
+        .or_else(|| scan_number(chars))
+        .or_else(|| scan_identifier(chars))
+        .or_else(|| scan_string(chars))
+}
 
-    fn matches(&mut self, expected: char) -> bool {
-        if self.is_at_end() {
-            return false;
-        }
-
-        if self.source[self.current] != expected {
-            return false;
-        }
-
-        self.current += 1;
-        true
-    }
-
-    fn lexeme(&self) -> String {
-        self.source[self.start..self.current].iter().collect()
-    }
-
-    fn add_token(&mut self, token_type: TokenType) {
-        self.add_token_with_literal(token_type, Literal::None);
-    }
-
-    fn add_token_with_literal(&mut self, token_type: TokenType, literal: Literal) {
-        self.tokens
-            .push(Token::new(token_type, self.lexeme(), self.line))
-    }
-
-    fn peek(&self) -> char {
-        if self.is_at_end() {
-            '\x00'
-        } else {
-            self.source[self.current]
-        }
-    }
-
-    fn scan_token(&mut self) {
-        match self.advance() {
-            '(' => self.add_token(TLeftParen),
-            ')' => self.add_token(TRightParen),
-            '{' => self.add_token(TLeftBrace),
-            '}' => self.add_token(TRightBrace),
-            ',' => self.add_token(TComma),
-            '.' => self.add_token(TDot),
-            '-' => self.add_token(TMinus),
-            '+' => self.add_token(TPlus),
-            ';' => self.add_token(TSemiColon),
-            '*' => self.add_token(TStar),
-            '!' => {
-                let token_type = if self.matches('=') { TBangEqual } else { TBang };
-                self.add_token(token_type);
+fn ignore_whitespace(chars: &mut Chars) -> Option<(TokenType, Range<usize>)> {
+    let &(start, ch) = chars.peek()?;
+    let mut end = start + 1;
+    if ch.is_whitespace() {
+        while let Some(&(n, ch)) = chars.peek() {
+            if ch.is_whitespace() {
+                end = n;
+                let _ = chars.next();
+            } else {
+                break;
             }
-            '=' => {
-                let token_type = if self.matches('=') {
-                    TEqualEqual
-                } else {
-                    TEqual
-                };
-                self.add_token(token_type);
-            }
-            '<' => {
-                let token_type = if self.matches('=') { TLessEqual } else { TLess };
-                self.add_token(token_type);
-            }
-            '>' => {
-                let token_type = if self.matches('=') {
-                    TGreaterEqual
-                } else {
-                    TGreater
-                };
-                self.add_token(token_type);
-            }
-            '/' => {
-                if self.matches('/') {
-                    while self.peek() != '\n' && self.is_at_end() {
-                        self.advance();
+        }
+        Some((TIgnore, start..end + 1))
+    } else {
+        None
+    }
+}
+
+fn scan_simple_symbol(chars: &mut Chars) -> Option<(TokenType, Range<usize>)> {
+    let &(start, ch) = chars.peek()?;
+    match ch {
+        '+' => accept(chars, TPlus, start),
+        '-' => accept(chars, TMinus, start),
+        '*' => accept(chars, TStar, start),
+        '(' => accept(chars, TLeftParen, start),
+        ')' => accept(chars, TRightParen, start),
+        '{' => accept(chars, TLeftBrace, start),
+        '}' => accept(chars, TRightBrace, start),
+        ';' => accept(chars, TSemiColon, start),
+        ',' => accept(chars, TComma, start),
+        '.' => accept(chars, TDot, start),
+        '/' => {
+            chars.next().unwrap();
+            if peek(chars, '/') {
+                let mut end = start;
+                while let Some((n, ch)) = chars.next() {
+                    end = n;
+                    if ch == '\n' {
+                        break;
                     }
+                }
+                Some((TIgnore, start..end))
+            } else {
+                Some((TSlash, start..start + 1))
+            }
+        }
+        _ => None,
+    }
+}
+
+fn scan_compare_symbol(chars: &mut Chars) -> Option<(TokenType, Range<usize>)> {
+    let &(start, ch) = chars.peek()?;
+    match ch {
+        '<' => {
+            let _ = chars.next();
+            if peek(chars, '=') {
+                accept(chars, TLessEqual, start)
+            } else {
+                Some((TLess, start..start + 1))
+            }
+        }
+        '>' => {
+            let _ = chars.next();
+            if peek(chars, '=') {
+                accept(chars, TGreaterEqual, start)
+            } else {
+                Some((TGreater, start..start + 1))
+            }
+        }
+        '=' => {
+            let _ = chars.next();
+            if peek(chars, '=') {
+                accept(chars, TEqualEqual, start)
+            } else {
+                Some((TEqual, start..start + 1))
+            }
+        }
+        '!' => {
+            let _ = chars.next();
+            if peek(chars, '=') {
+                accept(chars, TBangEqual, start)
+            } else {
+                Some((TBang, start..start + 1))
+            }
+        }
+        _ => None,
+    }
+}
+
+fn scan_number(chars: &mut Chars) -> Option<(TokenType, Range<usize>)> {
+    let &(start, ch) = chars.peek()?;
+    let mut end = start;
+    if ch.is_digit(10) {
+        while let Some(&(n, ch)) = chars.peek() {
+            if ch.is_digit(10) {
+                end = n;
+                chars.next().unwrap();
+            } else {
+                break;
+            }
+        }
+        if peek(chars, '.') {
+            chars.next().unwrap();
+            while let Some(&(n, ch)) = chars.peek() {
+                if ch.is_digit(10) {
+                    end = n;
+                    chars.next().unwrap();
                 } else {
-                    self.add_token(TSlash);
+                    break;
                 }
             }
-            ' ' | '\r' | '\t' => {}
-            '\n' => self.line += 1,
-            '"' => self.string(),
-            char if char.is_digit(10) => {
-                self.number();
-            }
-            char if char.is_alphabetic() => self.identifier(),
-            char => {
-                self.error(ScanError::UnexpectedCharacter {
-                    line: self.line,
-                    ch: char,
-                });
-            }
         }
-    }
-
-    fn string(&mut self) {
-        while self.peek() != '"' && !self.is_at_end() {
-            if self.peek() == '\n' {
-                self.line += 1;
-            }
-            self.advance();
-        }
-        if self.is_at_end() {
-            todo!("Unterminated String");
-        }
-        self.advance();
-        let value = self.source[self.start + 1..self.current - 1]
-            .iter()
-            .collect::<String>();
-        self.add_token_with_literal(TString, Literal::Str(value));
-    }
-
-    fn number(&mut self) {
-        while self.peek().is_digit(10) {
-            self.advance();
-        }
-
-        if self.peek() == '.' {
-            self.advance();
-            while self.peek().is_digit(10) {
-                self.advance();
-            }
-        }
-        let literal = Literal::Num(self.lexeme().parse().unwrap());
-        self.add_token_with_literal(TNumber, literal);
-    }
-
-    fn identifier(&mut self) {
-        while self.peek().is_alphanumeric() || self.peek() == '_' {
-            self.advance();
-        }
-
-        let token_type = match &self.lexeme()[..] {
-            "and" => TAnd,
-            "class" => TClass,
-            "else" => TElse,
-            "false" => TFalse,
-            "for" => TFor,
-            "fun" => TFun,
-            "if" => TIf,
-            "nil" => TNil,
-            "or" => TOr,
-            "print" => TPrint,
-            "return" => TReturn,
-            "super" => TSuper,
-            "this" => TThis,
-            "true" => TTrue,
-            "var" => TVar,
-            "while" => TWhile,
-            _ => TIdentifier,
-        };
-
-        self.add_token(token_type);
+        Some((TNumber, start..end + 1))
+    } else {
+        None
     }
 }
 
-pub fn tokenize(source: Source) -> Result<Tokens, Error> {
-    Scanner::new(&source.contents).scan_tokens()
+fn scan_string(chars: &mut Chars) -> Option<(TokenType, Range<usize>)> {
+    let &(start, ch) = chars.peek()?;
+    let mut end = start + 1;
+    if ch == '"' {
+        chars.next().unwrap();
+        while let Some((n, ch)) = chars.next() {
+            end = n;
+            if ch == '"' {
+                break;
+            }
+        }
+        Some((TString, start..end + 1))
+    } else {
+        None
+    }
+}
+
+fn scan_identifier(chars: &mut Chars) -> Option<(TokenType, Range<usize>)> {
+    let &(start, ch) = chars.peek()?;
+    let mut end = start;
+    if ch.is_alphabetic() || ch == '_' {
+        while let Some(&(n, ch)) = chars.peek() {
+            if ch.is_alphanumeric() || ch == '_' {
+                end = n;
+                chars.next().unwrap();
+            } else {
+                break;
+            }
+        }
+        Some((TIdentifier, start..end + 1))
+    } else {
+        None
+    }
+}
+
+pub fn tokenize<'a>(source: &'a Source) -> Result<Tokens<'a>, Error> {
+    scan_tokens(&source.contents)
 }
 
 #[cfg(test)]
@@ -314,12 +324,12 @@ mod tests {
 
     #[test]
     fn its_alive() {
-        assert_eq!(true, true)
+        assert_eq!(true, true);
     }
     #[test]
     fn single_character() {
-        let scanner = Scanner::new("(){},.-+;*");
-        let tokens = scanner.scan_tokens();
+        let source = String::from("(){},.-+;*/");
+        let tokens = scan_tokens(&source);
         assert_eq!(
             tokens.unwrap().tokens,
             vec![
@@ -333,15 +343,16 @@ mod tests {
                 Token::new(TPlus, "+", 1),
                 Token::new(TSemiColon, ";", 1),
                 Token::new(TStar, "*", 1),
-                Token::new(TEof, "", 1)
+                Token::new(TSlash, "/", 1),
+                Token::new(TEof, "", 1),
             ]
         )
     }
 
     #[test]
     fn two_character() {
-        let scanner = Scanner::new("! != < <= > >= == =");
-        let tokens = scanner.scan_tokens();
+        let source = String::from("! != < <= > >= == =");
+        let tokens = scan_tokens(&source);
         assert_eq!(
             tokens.unwrap().tokens,
             vec![
@@ -353,60 +364,58 @@ mod tests {
                 Token::new(TGreaterEqual, ">=", 1),
                 Token::new(TEqualEqual, "==", 1),
                 Token::new(TEqual, "=", 1),
-                Token::new(TEof, "", 1)
+                Token::new(TEof, "", 1),
             ]
         )
     }
 
     #[test]
     fn strings() {
-        let scanner = Scanner::new("\"hello\" \"world\"");
-        let tokens = scanner.scan_tokens();
+        let source = String::from("\"hello\" \"world\"");
+        let tokens = scan_tokens(&source);
         assert_eq!(
             tokens.unwrap().tokens,
             vec![
                 Token::new(TString, "\"hello\"", 1),
                 Token::new(TString, "\"world\"", 1),
-                Token::new(TEof, "", 1)
+                Token::new(TEof, "", 1),
             ]
         )
     }
 
     #[test]
     fn numbers() {
-        let scanner = Scanner::new("12345 123.45");
-        let tokens = scanner.scan_tokens();
+        let source = String::from("12345 123.45");
+        let tokens = scan_tokens(&source);
         assert_eq!(
             tokens.unwrap().tokens,
             vec![
                 Token::new(TNumber, "12345", 1),
                 Token::new(TNumber, "123.45", 1),
-                Token::new(TEof, "", 1)
+                Token::new(TEof, "", 1),
             ]
         )
     }
-
     #[test]
     fn identifiers() {
-        let scanner = Scanner::new("abc def123 ab_cd");
-        let tokens = scanner.scan_tokens();
+        let source = String::from("abc def123 ab_cd");
+        let tokens = scan_tokens(&source);
         assert_eq!(
             tokens.unwrap().tokens,
             vec![
                 Token::new(TIdentifier, "abc", 1),
                 Token::new(TIdentifier, "def123", 1),
                 Token::new(TIdentifier, "ab_cd", 1),
-                Token::new(TEof, "", 1)
+                Token::new(TEof, "", 1),
             ]
         )
     }
-
     #[test]
     fn keywords() {
-        let scanner = Scanner::new(
+        let source = String::from(
             "and class else false for fun if nil or print return super this true var while",
         );
-        let tokens = scanner.scan_tokens();
+        let tokens = scan_tokens(&source);
         assert_eq!(
             tokens.unwrap().tokens,
             vec![
@@ -426,7 +435,7 @@ mod tests {
                 Token::new(TTrue, "true", 1),
                 Token::new(TVar, "var", 1),
                 Token::new(TWhile, "while", 1),
-                Token::new(TEof, "", 1)
+                Token::new(TEof, "", 1),
             ]
         )
     }

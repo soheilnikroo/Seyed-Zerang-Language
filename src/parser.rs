@@ -8,7 +8,7 @@ use crate::{
 use Operator::*;
 use TokenType::*;
 
-impl From<&Token> for Operator {
+impl<'a> From<&Token<'a>> for Operator {
     fn from(token: &Token) -> Self {
         match token.token_type {
             TPlus => OAdd,
@@ -34,13 +34,13 @@ pub enum Error {
     SyntaxError { line: usize, msg: String },
 }
 
-struct Parser {
-    tokens: Vec<Token>,
+struct Parser<'a> {
+    tokens: Vec<Token<'a>>,
     n: usize,
 }
 
-impl Parser {
-    fn new(tokens: Tokens) -> Self {
+impl<'a> Parser<'a> {
+    fn new(tokens: Tokens<'a>) -> Self {
         Self {
             tokens: tokens.tokens,
             n: 0,
@@ -80,11 +80,11 @@ impl Parser {
         }
     }
 
-    fn last_token(&self) -> &Token {
+    fn last_token(&self) -> &Token<'_> {
         &self.tokens[self.n - 1]
     }
 
-    fn last_lexeme(&self) -> &String {
+    fn last_lexeme(&self) -> &&'a str {
         &self.tokens[self.n - 1].lexeme
     }
 
@@ -138,7 +138,7 @@ impl Parser {
 
     fn parse_var_declaration(&mut self) -> Result<Statement, Error> {
         self.consume(TIdentifier, "Expect variable name")?;
-        let name = self.last_lexeme().clone();
+        let name = *self.last_lexeme();
         let mut initializer = None;
         if self.accept(TEqual) {
             initializer = Some(self.parse_expression()?);
@@ -181,7 +181,7 @@ impl Parser {
 
     fn parse_primary(&mut self) -> Result<Expr, Error> {
         Ok(if self.accept(TNumber) {
-            Expr::number(self.last_lexeme())
+            Expr::number(self.last_lexeme().to_string())
         } else if self.accept(TString) {
             let lexeme = self.last_lexeme();
             Expr::string(&lexeme[1..lexeme.len() - 1])
@@ -196,7 +196,7 @@ impl Parser {
             self.consume(TRightParen, "Expected ')' after expression")?;
             Expr::grouping(expr)
         } else if self.accept(TIdentifier) {
-            Expr::variable(self.last_lexeme())
+            Expr::variable(self.last_lexeme().to_string())
         } else {
             return Err(self.syntax_error("Expected primary"));
         })
@@ -211,21 +211,12 @@ pub fn parse(tokens: Tokens) -> Result<AST, Error> {
 mod tests {
     use super::*;
 
-    fn parse_string(source: &str) -> AST {
-        use crate::reader::Source;
-        use crate::tokenize::tokenize;
-
-        let source = Source::from(source);
-        let tokens = tokenize(source).unwrap();
-        parse(tokens).unwrap()
-    }
-
     fn parse_expr_string(source: &str) -> Expr {
         use crate::reader::Source;
         use crate::tokenize::tokenize;
 
         let source = Source::from(source);
-        let tokens = tokenize(source).unwrap();
+        let tokens = tokenize(&source).unwrap();
         Parser::new(tokens).parse_expression().unwrap()
     }
 

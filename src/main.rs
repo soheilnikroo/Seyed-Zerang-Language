@@ -10,7 +10,6 @@ use std::{
     io::{Write, stdin, stdout},
 };
 
-use evaluate::evaluate;
 use parser::parse;
 use reader::read_source;
 use tokenize::tokenize;
@@ -96,15 +95,12 @@ fn report_errors(err: Error) {
 }
 
 fn run(source: Source) -> Result<(), Error> {
-    let tokens = tokenize(source)?;
-    let ast = parse(tokens)?;
-    evaluate(ast)?;
-
-    Ok(())
+    let mut interpreter = evaluate::Interpreter::new();
+    run_interpreter(&mut interpreter, source)
 }
 
 fn run_interpreter(interpreter: &mut evaluate::Interpreter, source: Source) -> Result<(), Error> {
-    let tokens = tokenize(source)?;
+    let tokens = tokenize(&source)?;
     let ast = parse(tokens)?;
     interpreter.evaluate(ast)?;
 
