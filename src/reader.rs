@@ -25,7 +25,6 @@ impl From<io::Error> for Error {
 }
 
 pub fn read_source(filename: &str) -> Result<Source, Error> {
-    println!("Reading Source.");
     let contents = read_to_string(filename)?;
     Ok(Source { contents })
 }

@@ -138,9 +138,7 @@ fn main() {
         run_prompt();
     } else if args.len() == 2 {
         match run_file(&args[1]) {
-            Ok(_) => {
-                println!("Success!")
-            }
+            Ok(_) => {}
             Err(err) => {
                 report_errors(err);
             }
