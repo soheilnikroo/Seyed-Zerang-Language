@@ -67,12 +67,6 @@ impl Interpreter {
     }
 }
 
-pub fn evaluate(ast: AST) -> Result<Output, Error> {
-    let environment = Environment::new(None);
-    execute_statements(&ast.top, &environment)?;
-    Ok(())
-}
-
 pub fn execute_statements(
     statements: &Vec<Statement>,
     environment: &Rc<Environment>,
@@ -198,7 +192,6 @@ pub fn evaluate_expression(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn its_alive() {

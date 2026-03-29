@@ -5,6 +5,7 @@ pub struct Source {
 }
 
 impl Source {
+    #[allow(dead_code)]
     pub fn from(s: impl Into<String>) -> Source {
         Source { contents: s.into() }
     }
@@ -31,7 +32,6 @@ pub fn read_source(filename: &str) -> Result<Source, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn its_alive() {

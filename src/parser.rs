@@ -73,6 +73,10 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn check(&mut self, token_type: TokenType) -> bool {
+        !self.at_end() && self.tokens[self.n].token_type == token_type
+    }
+
     fn syntax_error(&self, msg: &str) -> Error {
         Error::SyntaxError {
             line: self.tokens[self.n].line,
@@ -119,15 +123,50 @@ impl<'a> Parser<'a> {
     fn parse_statement(&mut self) -> Result<Statement, Error> {
         if self.accept(TPrint) {
             self.parse_print_statement()
+        } else if self.accept(TLeftBrace) {
+            self.parse_block()
+        } else if self.accept(TIf) {
+            self.parse_if_statement()
+        } else if self.accept(TWhile) {
+            self.parse_while_statement()
         } else {
             self.parse_expression_statement()
         }
+    }
+
+    fn parse_block(&mut self) -> Result<Statement, Error> {
+        let mut statements = Vec::new();
+        while !self.check(TRightBrace) && !self.at_end() {
+            statements.push(self.parse_declaration()?);
+        }
+        self.consume(TRightBrace, "Expect '}' after block.")?;
+        Ok(Statement::block(statements))
     }
 
     fn parse_print_statement(&mut self) -> Result<Statement, Error> {
         let value = self.parse_expression()?;
         self.consume(TSemiColon, "Expect ';' after value.")?;
         Ok(Statement::print(value))
+    }
+
+    fn parse_if_statement(&mut self) -> Result<Statement, Error> {
+        self.consume(TLeftParen, "Expect '(' after if.")?;
+        let condition = self.parse_expression()?;
+        self.consume(TRightParen, "Expected ')' after if condition.")?;
+        let consequence = self.parse_statement()?;
+        let mut alternative = None;
+        if self.accept(TElse) {
+            alternative = Some(self.parse_statement()?);
+        }
+        Ok(Statement::if_statement(condition, consequence, alternative))
+    }
+
+    fn parse_while_statement(&mut self) -> Result<Statement, Error> {
+        self.consume(TLeftParen, "Expect '(' after 'while'.")?;
+        let condition = self.parse_expression()?;
+        self.consume(TRightParen, "Expect ')' after 'while' condition.")?;
+        let body = self.parse_statement()?;
+        Ok(Statement::while_statement(condition, body))
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement, Error> {
@@ -148,8 +187,24 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self) -> Result<Expr, Error> {
-        let left = self.parse_unary()?;
+        self.parse_assignment()
+    }
 
+    pub fn parse_assignment(&mut self) -> Result<Expr, Error> {
+        let expr = self.parse_binary()?;
+        if self.accept(TEqual) {
+            let value = self.parse_assignment()?;
+            if let Expr::EVariable { name } = expr {
+                return Ok(Expr::assign(name, value));
+            } else {
+                panic!("Invalid assignment target");
+            }
+        }
+        Ok(expr)
+    }
+
+    pub fn parse_binary(&mut self) -> Result<Expr, Error> {
+        let left = self.parse_unary()?;
         if self.accepts([
             TPlus,
             TMinus,
@@ -162,9 +217,9 @@ impl<'a> Parser<'a> {
             TEqualEqual,
             TBangEqual,
         ]) {
-            let operator = Operator::from(self.last_token());
+            let op = Operator::from(self.last_token());
             let right = self.parse_unary()?;
-            Ok(Expr::binary(left, operator, right))
+            Ok(Expr::binary(left, op, right))
         } else {
             Ok(left)
         }
