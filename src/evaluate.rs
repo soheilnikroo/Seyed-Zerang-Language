@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::rc::Rc;
 
 use crate::ast::Operator::{self, *};
 use crate::ast::Statement;
@@ -50,13 +51,13 @@ pub enum Error {
 }
 
 pub struct Interpreter {
-    top_level: Environment,
+    top_level: Rc<Environment>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            top_level: Environment::new(),
+            top_level: Environment::new(None),
         }
     }
 
@@ -67,14 +68,14 @@ impl Interpreter {
 }
 
 pub fn evaluate(ast: AST) -> Result<Output, Error> {
-    let mut environment = Environment::new();
-    execute_statements(&ast.top, &mut environment)?;
+    let environment = Environment::new(None);
+    execute_statements(&ast.top, &environment)?;
     Ok(())
 }
 
 pub fn execute_statements(
     statements: &Vec<Statement>,
-    environment: &mut Environment,
+    environment: &Rc<Environment>,
 ) -> Result<(), Error> {
     for stmt in statements.iter() {
         execute_statement(stmt, environment)?
@@ -85,7 +86,7 @@ pub fn execute_statements(
 
 pub fn execute_statement(
     statement: &Statement,
-    environment: &mut Environment,
+    environment: &Rc<Environment>,
 ) -> Result<(), Error> {
     match statement {
         Statement::SPrint { expr } => {
@@ -102,12 +103,35 @@ pub fn execute_statement(
             };
             environment.declare(name, iv);
         }
+        Statement::SBlock { statements } => {
+            let newenv = Environment::new(Some(environment.clone()));
+            execute_statements(statements, &newenv)?
+        }
+        Statement::SIf {
+            alternative,
+            condition,
+            consequence,
+        } => {
+            if evaluate_expression(condition, environment)?.is_truthy() {
+                execute_statement(consequence, environment)?;
+            } else if let Some(statement) = alternative {
+                execute_statement(statement, environment)?;
+            }
+        }
+        Statement::SWhile { condition, body } => {
+            while evaluate_expression(condition, environment)?.is_truthy() {
+                execute_statement(body, environment)?
+            }
+        }
     }
 
     Ok(())
 }
 
-pub fn evaluate_expression(expr: &Expr, environment: &Environment) -> Result<ZerangValue, Error> {
+pub fn evaluate_expression(
+    expr: &Expr,
+    environment: &Rc<Environment>,
+) -> Result<ZerangValue, Error> {
     Ok(match expr {
         ENumber { value } => ZNumber(value.parse().unwrap()),
         EString { value } => ZString(value.clone()),
@@ -161,6 +185,14 @@ pub fn evaluate_expression(expr: &Expr, environment: &Environment) -> Result<Zer
             }
         }
         EGrouping { expression } => evaluate_expression(expression, environment)?,
+        EAssign { name, value } => {
+            let v = evaluate_expression(value, environment)?;
+            if let Some(v) = environment.assign(name, v) {
+                v
+            } else {
+                return Err(Error::NotFound(name.clone()));
+            }
+        }
     })
 }
 

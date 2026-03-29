@@ -71,6 +71,10 @@ pub enum Expr {
     EVariable {
         name: String,
     },
+    EAssign {
+        name: String,
+        value: Box<Expr>,
+    },
 }
 
 impl Expr {
@@ -117,6 +121,13 @@ impl Expr {
     pub fn variable(name: impl Into<String>) -> Expr {
         EVariable { name: name.into() }
     }
+
+    pub fn assign(name: impl Into<String>, value: Expr) -> Expr {
+        EAssign {
+            name: name.into(),
+            value: value.into(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -130,6 +141,18 @@ pub enum Statement {
     SVarDecl {
         name: String,
         initializer: Option<Expr>,
+    },
+    SBlock {
+        statements: Vec<Statement>,
+    },
+    SIf {
+        condition: Expr,
+        consequence: Box<Statement>,
+        alternative: Option<Box<Statement>>,
+    },
+    SWhile {
+        condition: Expr,
+        body: Box<Statement>,
     },
 }
 
@@ -146,6 +169,29 @@ impl Statement {
         Self::SVarDecl {
             name: name.into(),
             initializer,
+        }
+    }
+
+    pub fn block(statements: Vec<Statement>) -> Statement {
+        Self::SBlock { statements }
+    }
+
+    pub fn if_statement(
+        condition: Expr,
+        consequence: Statement,
+        alternative: Option<Statement>,
+    ) -> Statement {
+        Self::SIf {
+            condition,
+            consequence: consequence.into(),
+            alternative: alternative.map(|s| Box::new(s)),
+        }
+    }
+
+    pub fn while_statement(condition: Expr, body: Statement) -> Statement {
+        Self::SWhile {
+            condition,
+            body: body.into(),
         }
     }
 }
@@ -192,6 +238,9 @@ pub fn format_exp(e: &Expr) -> String {
         }
         EGrouping { expression } => {
             format!("(group {})", format_exp(expression))
+        }
+        EAssign { name, value } => {
+            format!("(assign {} {})", name, format_exp(value))
         }
     }
 }
